@@ -1,0 +1,19 @@
+{%extends "layout.html" %}
+
+{% block body %}
+{% from "_formhelpers.html" import render_field %}
+
+This form will trigger #amountOfCalls HTTP POST calls against the specified endpoint URL.
+</br>
+</br>
+
+<form method="POST">
+    <!-- the following is required because of the CSRF token  -->
+    {{ form.hidden_tag() }}
+
+    {{ render_field(form.url) }}
+    {{ render_field(form.amountOfCalls) }}
+
+    {{ form.submit() }}
+</form>
+{% endblock %}
