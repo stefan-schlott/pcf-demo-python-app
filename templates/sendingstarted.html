@@ -1,9 +1,0 @@
-{%extends "layout.html" %}
-
-{% block body %}
-    {% if url and amountOfCalls %}
-        The sending started. The destination url {{ url }} with be called with {{ amountOfCalls }} calls.
-    {% else %}
-        There is currently work in progress. Please wait until the work is done.
-    {% endif %}
-{% endblock %}

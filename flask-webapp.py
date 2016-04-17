@@ -1,14 +1,16 @@
 import os
 import bmemcached
 import config
-from flask import Flask, render_template, redirect, url_for, request
-
+from flask import Flask, render_template, redirect, url_for, request, jsonify
+import mysql.connector
 from forms.senderform import SenderForm
+import time
 
 app = Flask(__name__)
 # key required by Flask-WTF (for CSRF Protection)
 app.config['SECRET_KEY'] = 'very, very secret key'
 
+# little Hello World overview page showing the instance index and the environment variables
 @app.route('/', methods=['GET'])
 @app.route('/overview', methods=['GET'])
 def overview():
@@ -22,6 +24,7 @@ def overview():
     return render_template('overview.html',title='Overview',content=contentText)
 
 
+# Sender Overview (set the amount of calls to be made by the request worker)
 @app.route('/sender', methods=['GET','POST'])
 def sender():
     url = None
@@ -36,34 +39,70 @@ def sender():
 
     # stop right here until the worker is finished
     if workInProgress:
-        return render_template('sendingstarted.html', title='Sender View', busy=workInProgress)
+        return render_template('senderview.html', title='Sender View', busy=workInProgress)
 
     form = SenderForm(request.form)
     if form.validate_on_submit():
-        url = str(form.url.data)
         amountOfCalls = int(form.amountOfCalls.data)
 
         # check if currently work in progress (worker removes that key after finished business)
         if not workInProgress:
             mc.set('workInProgress','True')
-            mc.set('destinationURL',url)
-            mc.set('amountOfCalls',str(amountOfCalls))
+            mc.set('amountOfCalls', str(amountOfCalls))
+            mc.set('destinationURL',config.destinationURL)
             workInProgress = True
 
-        return render_template('sendingstarted.html',title='Sender View', busy=workInProgress, url=url, amountOfCalls=str(amountOfCalls))
+        return render_template('senderview.html',title='Sender View', busy=workInProgress)
     else:
         return render_template('senderview.html', title='Sender View', form=form)
 
-# API method (no view returned)
+
+# API method (no view returned) - for the request worker (incrementing a counter in the database)
 @app.route('/receiver', methods=['GET'])
 def receiver():
-    return render_template('receiverview.html', title='Receiver View')
+    timestamp = request.args.get('timestamp')
+    if timestamp:
+        # database connection
+        cnx = mysql.connector.connect(user=config.database_username, password=config.database_password,
+                                      host=config.database_host, database=config.database_name)
+        cursor = cnx.cursor()
 
+        # increase the counter for current_request_count
+        cursor.execute(config.SQL_INCREMENT_COUNTER, (timestamp,))
+
+        cnx.commit()
+
+        cursor.close()
+        cnx.close()
+
+        print 'Instance Index is: ' + str(os.getenv('INSTANCE_INDEX'))
+
+    return jsonify({})
+
+
+# overview page for the request run statistics saved in the database
 @app.route('/receiver-stats', methods=['GET'])
 def receiver_stats():
-    return render_template('receiverview.html', title='Receiver View')
+    request_runs = []
+
+    # database connection
+    cnx = mysql.connector.connect(user=config.database_username, password=config.database_password,
+                                  host=config.database_host, database=config.database_name)
+    cursor = cnx.cursor()
+
+    cursor.execute(config.SQL_SELECT_ALL)
+
+    for (ID, timestamp, current_request_count, max_possible_count) in cursor:
+
+        request_runs.append((ID, time.ctime(timestamp), current_request_count, max_possible_count))
+
+    cursor.close()
+    cnx.close()
+
+    return render_template('receiverview.html', title='Receiver View', data=request_runs)
 
 
+# switching page for the AutoScaler CPU load worker(s)
 @app.route('/autoscaler', methods=['GET'])
 def autoscaler():
     # either 'ON','OFF' or None
@@ -89,6 +128,7 @@ def autoscaler():
     return render_template('autoscalerview.html', title='Autoscaler View', loadEnabled=currentState)
 
 
+# quickly clear memcached (for development purposes)
 @app.route('/flush-memcached', methods=['GET'])
 def flush_memcached():
     mc = bmemcached.Client(config.memcachedURL, config.memcachedUsername, config.memcachedPassword)

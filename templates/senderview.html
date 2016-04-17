@@ -1,19 +1,22 @@
 {%extends "layout.html" %}
 
 {% block body %}
-{% from "_formhelpers.html" import render_field %}
+    {% from "_formhelpers.html" import render_field %}
 
-This form will trigger #amountOfCalls HTTP POST calls against the specified endpoint URL.
-</br>
-</br>
+    {% if busy %}
+        There is currently work in progress. Please wait until the work is done. Once finished you can see the results at <a href="{{ url_for('receiver_stats') }}">Receiver Statistics View</a>.
+    {% else %}
+        This form will trigger the set amount of HTTP POST calls against the specified endpoint URL.
+        </br>
+        </br>
 
-<form method="POST">
-    <!-- the following is required because of the CSRF token  -->
-    {{ form.hidden_tag() }}
+        <form method="POST">
+            <!-- the following is required because of the CSRF token  -->
+            {{ form.hidden_tag() }}
 
-    {{ render_field(form.url) }}
-    {{ render_field(form.amountOfCalls) }}
+            {{ render_field(form.amountOfCalls) }}
 
-    {{ form.submit() }}
-</form>
+            {{ form.submit() }}
+        </form>
+    {% endif %}
 {% endblock %}
