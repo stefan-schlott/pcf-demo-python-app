@@ -1,5 +1,10 @@
 {%extends "layout.html" %}
 
 {% block body %}
-<!-- actual content (taken as is - e.g. HTML can be provided) -->
+    The current state of the load is {{ loadEnabled }}.
+    {% if loadEnabled=='ON' %}
+        <a href="{{ url_for('autoscaler') }}?desiredState=OFF">Turn it OFF</a>
+    {% else %}
+        <a href="{{ url_for('autoscaler') }}?desiredState=ON">Turn it ON</a>
+    {% endif %}
 {% endblock %}
